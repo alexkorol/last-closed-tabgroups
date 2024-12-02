@@ -1,0 +1,1 @@
+chrome.runtime.sendMessage({ action: 'getScreenInfo', screenInfo: { width: screen.width, height: screen.height, availWidth: screen.availWidth, availHeight: screen.availHeight } });
