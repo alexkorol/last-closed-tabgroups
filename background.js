@@ -53,7 +53,6 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
   });
 });
 
-// ... (rest of the code remains the same, except for findMatchingDisplay and getDisplayInfo)
 
 // Improved findMatchingDisplay function
 function findMatchingDisplay(window, displays) {
@@ -106,5 +105,3 @@ async function getDisplayInfo() {
     }
   });
 }
-
-// ... (rest of the code remains the same)
