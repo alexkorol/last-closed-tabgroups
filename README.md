@@ -8,6 +8,7 @@ When working with multiple monitors and browser windows, closing the browser and
 ## Features
 - Automatically saves the state of all browser windows when closing
 - Restores previous window configurations on browser startup
+- Preserves window positions across multiple monitors
 - Manages tab groups across multiple windows
 - Provides a popup interface for:
   - Closing all windows with state preservation
@@ -17,13 +18,19 @@ When working with multiple monitors and browser windows, closing the browser and
 ## Development
 This extension is built for Chromium-based browsers (specifically tested with Brave).
 
+## Recent Fixes
+- Fixed issue with windows opening on incorrect monitors
+- Improved window position memory to preserve exact monitor locations
+- Enhanced display matching algorithm using window center points
+
 ## Known Issues
 1. Initial homepage window appears briefly before restoration
 2. Some windows may not restore properly
 3. Manual exit through menu required
 
 ## Planned Improvements
-- Add popup UI for closing all windows
+- Add popup UI for closing all windows ✓
 - Window group management interface
 - Preferences for window/group restoration
 - Remove initial homepage window
+- Support for tab groups and pinned tabs
