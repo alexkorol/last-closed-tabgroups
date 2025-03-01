@@ -66,12 +66,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // Helper function to find matching display for a window
 function findMatchingDisplay(window, displays) {
-  // Sort displays by distance to window position
+  // Calculate the center point of the window
+  const windowCenterX = (window.left || 0) + (window.width || 800) / 2;
+  const windowCenterY = (window.top || 0) + (window.height || 600) / 2;
+  
+  // Find which display contains this center point
+  for (const display of displays) {
+    if (windowCenterX >= display.bounds.left && 
+        windowCenterX < display.bounds.left + display.bounds.width &&
+        windowCenterY >= display.bounds.top && 
+        windowCenterY < display.bounds.top + display.bounds.height) {
+      return display;
+    }
+  }
+  
+  // Sort displays by distance to window center as fallback
   const sortedDisplays = displays.map(display => ({
     display,
     distance: Math.sqrt(
-      Math.pow((window.left || 0) - display.bounds.left, 2) +
-      Math.pow((window.top || 0) - display.bounds.top, 2)
+      Math.pow(windowCenterX - (display.bounds.left + display.bounds.width/2), 2) +
+      Math.pow(windowCenterY - (display.bounds.top + display.bounds.height/2), 2)
     )
   })).sort((a, b) => a.distance - b.distance);
 
@@ -125,20 +139,60 @@ async function restoreLastClosedWindows(specificWindowIds = null) {
 
       try {
         // Find the matching display based on saved displayId
-        let targetDisplay = displays.find(d => d.id === session.window.displayId) || 
-                          displays[i % displays.length];
+        // First try to match by display ID
+        let targetDisplay = displays.find(d => d.id === session.window.displayId);
+        
+        // If no match by ID or displayId is missing, try matching by position
+        if (!targetDisplay && session.window.left !== undefined) {
+          targetDisplay = findMatchingDisplay(session.window, displays);
+        }
+        
+        // Fall back to a display based on index if we still don't have a match
+        if (!targetDisplay) {
+          targetDisplay = displays[i % displays.length];
+        }
 
         console.log(`Restoring window ${i + 1} to display:`, targetDisplay);
+        
+        // Use the original window position if available, otherwise center on the target display
+        const windowPositionOptions = {
+          focused: false,
+          state: 'normal'
+        };
+        
+        // Only apply position if we have the original coordinates
+        if (session.window.left !== undefined && session.window.top !== undefined) {
+          // Ensure coordinates are within the target display
+          const left = Math.max(targetDisplay.bounds.left, 
+                       Math.min(targetDisplay.bounds.left + targetDisplay.bounds.width - 100, 
+                       session.window.left));
+          const top = Math.max(targetDisplay.bounds.top, 
+                      Math.min(targetDisplay.bounds.top + targetDisplay.bounds.height - 100, 
+                      session.window.top));
+          
+          windowPositionOptions.left = left;
+          windowPositionOptions.top = top;
+          
+          // Use original size if available
+          if (session.window.width && session.window.height) {
+            windowPositionOptions.width = session.window.width;
+            windowPositionOptions.height = session.window.height;
+          } else {
+            windowPositionOptions.width = Math.min(1200, targetDisplay.bounds.width * 0.8);
+            windowPositionOptions.height = Math.min(800, targetDisplay.bounds.height * 0.8);
+          }
+        } else {
+          // Center on the target display if original coordinates aren't available
+          windowPositionOptions.left = targetDisplay.bounds.left + Math.floor(targetDisplay.bounds.width * 0.1);
+          windowPositionOptions.top = targetDisplay.bounds.top + Math.floor(targetDisplay.bounds.height * 0.1);
+          windowPositionOptions.width = Math.floor(targetDisplay.bounds.width * 0.8);
+          windowPositionOptions.height = Math.floor(targetDisplay.bounds.height * 0.8);
+        }
+
+        console.log(`Window position for restoration:`, windowPositionOptions);
 
         // Create new window
-        const newWindow = await chrome.windows.create({
-          focused: false,
-          state: 'normal',
-          left: targetDisplay.bounds.left,
-          top: targetDisplay.bounds.top,
-          width: targetDisplay.bounds.width,
-          height: targetDisplay.bounds.height
-        });
+        const newWindow = await chrome.windows.create(windowPositionOptions);
 
         // Create all tabs in this window
         const tabs = session.window.tabs;
@@ -159,9 +213,10 @@ async function restoreLastClosedWindows(specificWindowIds = null) {
           await chrome.tabs.remove(initialTabs[0].id);
         }
 
-        // Maximize the window
+        // Set the window state to match original
+        const finalState = session.window.state === 'maximized' ? 'maximized' : 'normal';
         await chrome.windows.update(newWindow.id, { 
-          state: 'maximized',
+          state: finalState,
           focused: i === windowSessions.length - 1 // Focus last window
         });
 

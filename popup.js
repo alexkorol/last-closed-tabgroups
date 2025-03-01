@@ -101,15 +101,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         .filter(w => selectedWindowIds.includes(w.id))
         .map(async (window) => {
           // Find which display this window is primarily on
+          const windowCenterX = window.left + (window.width / 2);
+          const windowCenterY = window.top + (window.height / 2);
+          
           const display = displays.find(d => 
-            window.left >= d.bounds.left && 
-            window.left < d.bounds.left + d.bounds.width
-          );
+            windowCenterX >= d.bounds.left && 
+            windowCenterX < d.bounds.left + d.bounds.width &&
+            windowCenterY >= d.bounds.top &&
+            windowCenterY < d.bounds.top + d.bounds.height
+          ) || displays[0];
 
           return {
             window: {
               ...window,
               displayId: display?.id,
+              displayBounds: display?.bounds,
               state: window.state,
               left: window.left,
               top: window.top,
@@ -121,7 +127,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (windowsToSave.length > 0) {
         console.log('Saving windows:', windowsToSave);
-        await chrome.storage.local.set({ 'lastClosedWindows': windowsToSave });
+        await chrome.storage.local.set({ 
+          'lastClosedWindows': windowsToSave,
+          'lastSaveTimestamp': Date.now() 
+        });
       }
       
       // Close all windows
